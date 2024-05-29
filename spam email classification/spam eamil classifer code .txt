@@ -1,0 +1,74 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import cross_val_score, GridSearchCV
+
+# Load the dataset
+url = "https://raw.githubusercontent.com/justmarkham/pycon-2016-tutorial/master/data/sms.tsv"
+data = pd.read_csv(url, sep='\t', header=None, names=['label', 'message'])
+
+# Handle missing values
+data.dropna(inplace=True)
+
+# Encode the labels
+label_encoder = LabelEncoder()
+data['label'] = label_encoder.fit_transform(data['label'])
+
+# Vectorize the messages
+tfidf = TfidfVectorizer(stop_words='english')
+X = tfidf.fit_transform(data['message'])
+y = data['label']
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define the models
+models = {
+    'Logistic Regression': LogisticRegression(),
+    'Decision Tree': DecisionTreeClassifier(),
+    'SVM': SVC(),
+    'Random Forest': RandomForestClassifier(),
+    'Gradient Boosting': GradientBoostingClassifier()
+}
+
+# Train and evaluate each model
+results = {}
+for model_name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    results[model_name] = {
+        'accuracy': accuracy_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred),
+        'recall': recall_score(y_test, y_pred),
+        'f1_score': f1_score(y_test, y_pred)
+    }
+
+# Display the results
+results_df = pd.DataFrame(results).T
+print(results_df)
+
+# Perform cross-validation for the best model (assuming Random Forest performed best)
+best_model = RandomForestClassifier()
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20, 30]
+}
+grid_search = GridSearchCV(best_model, param_grid, cv=5, scoring='f1')
+grid_search.fit(X_train, y_train)
+
+# Evaluate the best model from grid search
+best_model = grid_search.best_estimator_
+y_pred = best_model.predict(X_test)
+
+print(f"Best Model: {grid_search.best_params_}")
+print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
+print(f"Precision: {precision_score(y_test, y_pred)}")
+print(f"Recall: {recall_score(y_test, y_pred)}")
+print(f"F1-Score: {f1_score(y_test, y_pred)}")
